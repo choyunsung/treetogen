@@ -1,0 +1,91 @@
+# .github/workflows/release.yml
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '버전 (예: v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 모든 플랫폼용 빌드
+        run: |
+          npm install -g pkg
+          npm run build:all
+
+      - name: 배포 패키지 준비
+        run: |
+          mkdir -p release/{windows,macos,linux}
+          
+          # Windows 패키지
+          cp dist/windows/treetogen.exe release/windows/
+          cp README.md LICENSE release/windows/ || true
+          cd release
+          zip -r treetogen-windows.zip windows/
+          cd ..
+          
+          # macOS 패키지
+          cp dist/macos/treetogen release/macos/
+          chmod +x release/macos/treetogen
+          cp README.md LICENSE release/macos/ || true
+          cd release
+          zip -r treetogen-macos.zip macos/
+          cd ..
+          
+          # Linux 패키지
+          cp dist/linux/treetogen release/linux/
+          chmod +x release/linux/treetogen
+          cp README.md LICENSE release/linux/ || true
+          cd release
+          zip -r treetogen-linux.zip linux/
+          cd ..
+
+      - name: 자동 릴리스 생성
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/treetogen-windows.zip
+            release/treetogen-macos.zip
+            release/treetogen-linux.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 수동 릴리스 생성
+        uses: softprops/action-gh-release@v1
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: "TreeToGen ${{ github.event.inputs.version }}"
+          files: |
+            release/treetogen-windows.zip
+            release/treetogen-macos.zip
+            release/treetogen-linux.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

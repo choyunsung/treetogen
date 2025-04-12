@@ -1,14 +1,45 @@
 {
-  "name": "$name$",
-  "version": "$version$",
-  "description": "$END$",
-  "main": "$main$",
+  "name": "treetogen",
+  "version": "1.0.0",
+  "description": "텍스트 형식(tree)의 디렉토리 트리를 실제 파일 시스템에 생성하는 독립 실행형 도구",
+  "main": "index.js",
+  "repository": "https://github.com/choyunsung/treetogen.git",
+  "bin": {
+    "treetogen": "./index.js"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js interactive",
+    "build": "pkg . --out-path=dist",
+    "build:win": "pkg . --target=node16-win-x64 --output=dist/windows/treetogen.exe",
+    "build:mac": "pkg . --target=node16-macos-x64 --output=dist/macos/treetogen",
+    "build:linux": "pkg . --target=node16-linux-x64 --output=dist/linux/treetogen",
+    "build:all": "mkdir -p dist/{windows,macos,linux} && npm run build:win && npm run build:mac && npm run build:linux",
+    "release": "node scripts/release.js",
+    "release:push": "node scripts/git-release-push.js",
+    "bump": "node scripts/bump-version.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/choyunsung/tree-to-directory.git"
+  "pkg": {
+    "assets": [
+      "node_modules/**/*",
+      "*.js",
+      "scripts/**/*"
+    ],
+    "outputPath": "dist"
   },
-  "private": true
+  "keywords": [
+    "directory",
+    "tree",
+    "filesystem",
+    "generator",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
 }
