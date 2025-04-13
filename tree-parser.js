@@ -113,8 +113,9 @@ function createTreeStructure(tree, basePath) {
  */
 function generateFromTreeText(treeText, targetDir) {
     try {
+        console.log(treeText)
         const parsedTree = parseTreeText(treeText);
-        createTreeStructure(parsedTree, targetDir);
+        // createTreeStructure(parsedTree, targetDir);
         console.log('\n디렉토리 구조 생성이 완료되었습니다!');
     } catch (err) {
         console.error(`오류 발생: ${err.message}`);
