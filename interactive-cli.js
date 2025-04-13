@@ -16,7 +16,7 @@ const rl = readline.createInterface({
 function getMultilineInput(prompt) {
     return new Promise(resolve => {
         console.log(prompt);
-        console.log('여러 줄을 입력하세요. 입력을 마치려면 빈 줄에서 ENTER를 누르세요:');
+        console.log('입력을 마치려면 빈 줄에서 ENTER를 누르세요:');
 
         let lines = [];
         let inputListener = (line) => {
