@@ -1,15 +1,103 @@
 #!/usr/bin/env node
-// scripts/release.js - 수동 릴리스 스크립트 (경로 수정)
+// scripts/release.js - 크로스 플랫폼 릴리스 스크립트
 
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const readline = require('readline');
+const os = require('os'); // OS 정보를 위해 추가
 
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
+
+// 운영체제 확인
+const isWindows = os.platform() === 'win32';
+
+// 플랫폼에 맞는 명령어 실행 함수
+function execCommand(command, options = {}) {
+    // 윈도우에서는 일부 명령어 변환이 필요합니다
+    let cmd = command;
+    if (isWindows) {
+        // mkdir -p 대체
+        cmd = cmd.replace(/mkdir -p ([^ ]+)/g, 'mkdir -p "$1"')
+            .replace(/mkdir -p/g, 'if not exist "$1" mkdir');
+
+        // cp 명령어 대체
+        cmd = cmd.replace(/cp ([^ ]+) ([^ ]+)/g, 'copy /Y "$1" "$2"');
+
+        // chmod 무시 (윈도우에서는 필요 없음)
+        if (cmd.startsWith('chmod')) {
+            return;
+        }
+
+        // zip 명령어는 PowerShell 명령으로 대체
+        if (cmd.includes('zip -r')) {
+            const match = cmd.match(/cd ([^ ]+) && zip -r ([^ ]+)\.zip ([^ ]+)/);
+            if (match) {
+                const dir = match[1];
+                const zipName = match[2];
+                const targetDir = match[3];
+                cmd = `powershell -command "Compress-Archive -Path ${dir}\\${targetDir}\\* -DestinationPath ${dir}\\${zipName}.zip -Force"`;
+            }
+        }
+    }
+
+    try {
+        console.log(`실행 명령어: ${cmd}`);
+        execSync(cmd, options);
+    } catch (error) {
+        console.error(`명령어 실행 오류: ${cmd}`);
+        console.error(error.message);
+        throw error;
+    }
+}
+
+// 디렉토리 생성 함수 (플랫폼 독립적)
+function makeDirectory(dir) {
+    const fullPath = path.join(__dirname, '..', dir);
+
+    if (!fs.existsSync(fullPath)) {
+        if (isWindows) {
+            execCommand(`mkdir "${fullPath}"`, { stdio: 'inherit' });
+        } else {
+            execCommand(`mkdir -p "${fullPath}"`, { stdio: 'inherit' });
+        }
+    }
+}
+
+// 파일 복사 함수 (플랫폼 독립적)
+function copyFile(src, dest) {
+    const srcPath = path.join(__dirname, '..', src);
+    const destPath = path.join(__dirname, '..', dest);
+
+    try {
+        fs.copyFileSync(srcPath, destPath);
+        console.log(`파일 복사 완료: ${src} -> ${dest}`);
+    } catch (error) {
+        console.error(`파일 복사 오류: ${src} -> ${dest}`);
+        console.error(error.message);
+    }
+}
+
+// 패키지 압축 함수 (플랫폼 독립적)
+function createZipPackage(dir, zipName) {
+    const fullDir = path.join(__dirname, '..', dir);
+    const fullZipPath = path.join(__dirname, '..', 'release', `${zipName}.zip`);
+
+    if (isWindows) {
+        execCommand(
+            `powershell -command "Compress-Archive -Path '${fullDir}/*' -DestinationPath '${fullZipPath}' -Force"`,
+            { stdio: 'inherit' }
+        );
+    } else {
+        execCommand(
+            `cd ${path.join(__dirname, '..')} && zip -r release/${zipName}.zip ${dir}/`,
+            { stdio: 'inherit' }
+        );
+    }
+}
 
 // 사용자에게 질문하는 함수
 function askQuestion(question) {
@@ -22,6 +110,7 @@ function askQuestion(question) {
 
 async function main() {
     console.log('=== TreeToGen 릴리스 도구 ===\n');
+    console.log(`실행 환경: ${isWindows ? '윈도우' : '유닉스/맥'}\n`);
 
     // 버전 확인
     const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
@@ -49,7 +138,7 @@ async function main() {
     if (shouldBuild.toLowerCase() === 'y') {
         console.log('\n모든 플랫폼용 실행 파일을 빌드합니다...');
         try {
-            execSync('npm run build:all', { stdio: 'inherit' });
+            execCommand('npm run build:all', { stdio: 'inherit' });
             console.log('빌드가 완료되었습니다.');
         } catch (error) {
             console.error('빌드 중 오류가 발생했습니다:', error.message);
@@ -63,24 +152,56 @@ async function main() {
 
     try {
         // 릴리스 디렉토리 생성
-        execSync('mkdir -p release/{windows,macos,linux}', { stdio: 'inherit' });
+        makeDirectory('release');
+        makeDirectory('release/windows');
+        makeDirectory('release/macos');
+        makeDirectory('release/linux');
 
         // Windows 패키지
-        execSync('cp dist/windows/treetogen.exe release/windows/', { stdio: 'inherit' });
-        execSync('cp README.md LICENSE release/windows/ || true', { stdio: 'inherit' });
+        copyFile('dist/windows/treetogen.exe', 'release/windows/treetogen.exe');
+        copyFile('README.md', 'release/windows/README.md');
+
+        try {
+            copyFile('LICENSE', 'release/windows/LICENSE');
+        } catch (error) {
+            console.log('LICENSE 파일이 없습니다. 패키지 생성은 계속됩니다.');
+        }
 
         // macOS 패키지
-        execSync('cp dist/macos/treetogen release/macos/', { stdio: 'inherit' });
-        execSync('chmod +x release/macos/treetogen', { stdio: 'inherit' });
-        execSync('cp README.md LICENSE release/macos/ || true', { stdio: 'inherit' });
+        copyFile('dist/macos/treetogen', 'release/macos/treetogen');
+        copyFile('README.md', 'release/macos/README.md');
+
+        try {
+            copyFile('LICENSE', 'release/macos/LICENSE');
+        } catch (error) {
+            console.log('LICENSE 파일이 없습니다. 패키지 생성은 계속됩니다.');
+        }
+
+        // macOS에서는 실행 권한 부여
+        if (!isWindows) {
+            execCommand('chmod +x release/macos/treetogen', { stdio: 'inherit' });
+        }
 
         // Linux 패키지
-        execSync('cp dist/linux/treetogen release/linux/', { stdio: 'inherit' });
-        execSync('chmod +x release/linux/treetogen', { stdio: 'inherit' });
-        execSync('cp README.md LICENSE release/linux/ || true', { stdio: 'inherit' });
+        copyFile('dist/linux/treetogen', 'release/linux/treetogen');
+        copyFile('README.md', 'release/linux/README.md');
+
+        try {
+            copyFile('LICENSE', 'release/linux/LICENSE');
+        } catch (error) {
+            console.log('LICENSE 파일이 없습니다. 패키지 생성은 계속됩니다.');
+        }
+
+        // Linux에서는 실행 권한 부여
+        if (!isWindows) {
+            execCommand('chmod +x release/linux/treetogen', { stdio: 'inherit' });
+        }
 
         // ZIP 파일 생성
-        execSync('cd release && zip -r treetogen-windows.zip windows/ && zip -r treetogen-macos.zip macos/ && zip -r treetogen-linux.zip linux/ && cd ..', { stdio: 'inherit' });
+        console.log('\nZIP 패키지를 생성합니다...');
+        createZipPackage('release/windows', 'treetogen-windows');
+        createZipPackage('release/macos', 'treetogen-macos');
+        createZipPackage('release/linux', 'treetogen-linux');
 
         console.log('배포 패키지가 생성되었습니다.');
     } catch (error) {
@@ -144,7 +265,7 @@ async function main() {
         // GitHub CLI 확인
         let hasGhCli = false;
         try {
-            execSync('gh --version', { stdio: 'ignore' });
+            execCommand('gh --version', { stdio: 'ignore' });
             hasGhCli = true;
         } catch (error) {
             console.log('GitHub CLI가 설치되어 있지 않습니다. 수동으로 릴리스를 생성해야 합니다.');
@@ -153,7 +274,7 @@ async function main() {
         if (hasGhCli) {
             // GitHub 로그인 확인
             try {
-                execSync('gh auth status', { stdio: 'ignore' });
+                execCommand('gh auth status', { stdio: 'ignore' });
 
                 // 커밋 및 태그 생성
                 const createTag = await askQuestion('Git 태그를 생성하고 푸시하시겠습니까? (y/n): ');
@@ -165,13 +286,13 @@ async function main() {
 
                         if (hasChanges) {
                             const commitMsg = await askQuestion('커밋 메시지를 입력하세요: ');
-                            execSync(`git add .`, { stdio: 'inherit' });
-                            execSync(`git commit -m "${commitMsg || `Release ${tagName}`}"`, { stdio: 'inherit' });
+                            execCommand(`git add .`, { stdio: 'inherit' });
+                            execCommand(`git commit -m "${commitMsg || `Release ${tagName}`}"`, { stdio: 'inherit' });
                         }
 
                         // 태그 생성 및 푸시
-                        execSync(`git tag -a ${tagName} -m "Release ${tagName}"`, { stdio: 'inherit' });
-                        execSync(`git push origin ${tagName}`, { stdio: 'inherit' });
+                        execCommand(`git tag -a ${tagName} -m "Release ${tagName}"`, { stdio: 'inherit' });
+                        execCommand(`git push origin ${tagName}`, { stdio: 'inherit' });
 
                         console.log(`태그 ${tagName}가 생성되고 푸시되었습니다.`);
                     } catch (error) {
@@ -183,14 +304,11 @@ async function main() {
                 try {
                     console.log('GitHub 릴리스를 생성합니다... (이 작업은 몇 분 정도 걸릴 수 있습니다)');
 
-                    const cmd = `gh release create ${tagName} \
-            --title "TreeToGen ${tagName}" \
-            --notes-file "${tempNotesPath}" \
-            release/treetogen-windows.zip \
-            release/treetogen-macos.zip \
-            release/treetogen-linux.zip`;
+                    const releaseCmd = isWindows
+                        ? `gh release create ${tagName} --title "TreeToGen ${tagName}" --notes-file "${tempNotesPath}" "${path.join(__dirname, '..', 'release', 'treetogen-windows.zip')}" "${path.join(__dirname, '..', 'release', 'treetogen-macos.zip')}" "${path.join(__dirname, '..', 'release', 'treetogen-linux.zip')}"`
+                        : `gh release create ${tagName} --title "TreeToGen ${tagName}" --notes-file "${tempNotesPath}" release/treetogen-windows.zip release/treetogen-macos.zip release/treetogen-linux.zip`;
 
-                    execSync(cmd, { stdio: 'inherit' });
+                    execCommand(releaseCmd, { stdio: 'inherit' });
 
                     console.log(`GitHub 릴리스 ${tagName}가 성공적으로 생성되었습니다!`);
                 } catch (error) {

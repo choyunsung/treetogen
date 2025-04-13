@@ -1,6 +1,4 @@
 // interactive-cli.js
-const fs = require('fs');
-const path = require('path');
 const readline = require('readline');
 const { generateDirectoryStructure } = require('./tree-generator');
 
@@ -90,7 +88,9 @@ async function startInteractiveCLI() {
 
 // 스크립트가 직접 실행된 경우 CLI 시작
 if (require.main === module) {
-    startInteractiveCLI();
+    startInteractiveCLI().then(r => {
+        console.log('대화형 CLI 종료');
+    });
 }
 
 module.exports = {
