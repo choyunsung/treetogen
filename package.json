@@ -13,7 +13,7 @@
     "build:win": "pkg . --target=node16-win-x64 --output=dist/windows/treetogen.exe",
     "build:mac": "pkg . --target=node16-macos-x64 --output=dist/macos/treetogen",
     "build:linux": "pkg . --target=node16-linux-x64 --output=dist/linux/treetogen",
-    "build:all": "mkdir -p dist/{windows,macos,linux} && npm run build:win && npm run build:mac && npm run build:linux",
+    "build:all": "node scripts/build-all.js",
     "release": "node scripts/release.js",
     "release:push": "node scripts/git-release-push.js",
     "bump": "node scripts/bump-version.js"
