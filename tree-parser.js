@@ -15,8 +15,7 @@ function parseTreeText(input) {
     const result = {};
 
     // 루트 디렉토리 이름 (첫 줄)
-    const rootName = lines[0].trim();
-    result.name = rootName;
+    result.name = lines[0].trim();
     result.type = 'directory';
     result.children = [];
 
@@ -151,7 +150,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-    parseTreeText,
-    createTreeStructure,
     generateFromTreeText
 };

@@ -9,5 +9,5 @@ gen
 release
 test
 dist
-!/package-lock.json
+!/*-lock.json
 /node_modules/
