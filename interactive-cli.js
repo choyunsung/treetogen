@@ -1,7 +1,7 @@
 // interactive-cli.js
 const readline = require('readline');
-const { generateDirectoryStructure, formatTreeStructure, createFilesAndDirectories} = require('./tree-generator');
-// const { createFilesAndDirectories } = require('./utils');
+const { generateDirectoryStructure, formatTreeStructure} = require('./tree-generator');
+const { createFilesAndDirectories } = require('./utils');
 
 // 대화형 인터페이스 생성
 const rl = readline.createInterface({
