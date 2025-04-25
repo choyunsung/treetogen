@@ -1,6 +1,6 @@
 {
   "name": "treetogen",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "텍스트 형식(tree)의 디렉토리 트리를 실제 파일 시스템에 생성하는 독립 실행형 도구",
   "main": "index.js",
   "repository": "https://github.com/choyunsung/treetogen.git",
